@@ -163,7 +163,7 @@ jobs:
 
           cat apply.md >> $GITHUB_STEP_SUMMARY
   destroy:
-    needs: [plan]
+    needs: [apply]
     if: github.ref == 'refs/heads/main'
     name: Terraform Destroy
     runs-on: ubuntu-latest
