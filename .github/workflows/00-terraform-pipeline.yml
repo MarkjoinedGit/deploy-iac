@@ -162,3 +162,48 @@ jobs:
           } > apply.md
 
           cat apply.md >> $GITHUB_STEP_SUMMARY
+  destroy:
+    needs: [apply]
+    if: github.ref == 'refs/heads/main'
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    environment: Production
+    concurrency: Production
+
+    steps:
+      # Use a role for OIDC authentication
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v5.1.1
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: 1.14.3
+
+      - name: Terraform Init
+        id: init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="key=${{ github.repository }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}"
+
+      - name: Terraform Destroy
+        id: destroy
+        run: terraform destroy -no-color -auto-approve -input=false | tee destroy.txt
+
+      - name: Display the destroy summary
+        id: display
+        run: |
+          {
+            awk '/Destroy complete!/{ print "## " $0; exit }' destroy.txt
+          } > destroy.md
+
+          cat destroy.md >> $GITHUB_STEP_SUMMARY
+
